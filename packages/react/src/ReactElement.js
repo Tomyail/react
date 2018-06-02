@@ -180,6 +180,7 @@ export function createElement(type, config, children) {
   let source = null;
 
   if (config != null) {
+    //key 和 ref 单独判断抽出
     if (hasValidRef(config)) {
       ref = config.ref;
     }
@@ -187,12 +188,14 @@ export function createElement(type, config, children) {
       key = '' + config.key;
     }
 
+    //__self 属性是啥
     self = config.__self === undefined ? null : config.__self;
     source = config.__source === undefined ? null : config.__source;
     // Remaining properties are added to a new props object
+    //然后把剩余 *有效的* config 复制到 pros 里面
     for (propName in config) {
       if (
-        hasOwnProperty.call(config, propName) &&
+        hasOwnProperty.call(config, propName) && //为什么不用 config.hasOwnProperty
         !RESERVED_PROPS.hasOwnProperty(propName)
       ) {
         props[propName] = config[propName];
@@ -202,6 +205,7 @@ export function createElement(type, config, children) {
 
   // Children can be more than one argument, and those are transferred onto
   // the newly allocated props object.
+  //这个函数结束3+ 参数,第三个开始剩下的参数都算 children
   const childrenLength = arguments.length - 2;
   if (childrenLength === 1) {
     props.children = children;

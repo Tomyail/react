@@ -1,5 +1,6 @@
 'use strict';
 
+//定义了需要打包的目标版本
 const bundleTypes = {
   UMD_DEV: 'UMD_DEV',
   UMD_PROD: 'UMD_PROD',

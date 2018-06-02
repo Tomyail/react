@@ -14,8 +14,12 @@ import {
   REACT_STRICT_MODE_TYPE,
   REACT_TIMEOUT_TYPE,
 } from 'shared/ReactSymbols';
+// import {Great} from 'myTest/Yes';
 import {enableSuspense} from 'shared/ReactFeatureFlags';
+import {Link} from 'shared/Link';
 
+// console.log(Great());
+console.log(Link());
 import {Component, PureComponent} from './ReactBaseClasses';
 import {createRef} from './ReactCreateRef';
 import {forEach, map, count, toArray, only} from './ReactChildren';

@@ -317,10 +317,13 @@ function getPlugins(
 }
 
 function shouldSkipBundle(bundle, bundleType) {
+  //不在内置列表
   const shouldSkipBundleType = bundle.bundleTypes.indexOf(bundleType) === -1;
   if (shouldSkipBundleType) {
     return true;
   }
+  //不在传入的-- type 里面
+  // requestedBundleTypes 怎么赋值的
   if (requestedBundleTypes.length > 0) {
     const isAskingForDifferentType = requestedBundleTypes.every(
       requestedType => bundleType.indexOf(requestedType) === -1
@@ -351,6 +354,7 @@ async function createBundle(bundle, bundleType) {
   const format = getFormat(bundleType);
   const packageName = Packaging.getPackageName(bundle.entry);
 
+  // todo resolve('react') 为什么能拿到 react 的代码路径??
   let resolvedEntry = require.resolve(bundle.entry);
   if (bundleType === FB_WWW_DEV || bundleType === FB_WWW_PROD) {
     const resolvedFBEntry = resolvedEntry.replace('.js', '.fb.js');
@@ -498,7 +502,7 @@ function handleRollupError(error) {
 }
 
 async function buildEverything() {
-  await asyncRimRaf('build');
+  await asyncRimRaf('build'); //清理 build 目录
 
   // Run them serially for better console output
   // and to avoid any potential race conditions.

@@ -7,6 +7,8 @@
 
 'use strict';
 
+//确保react react-dom react-test-renderer  shared这四个包里面的 version 和最外面的 version 一样
+//todo 为什么只要确保这四个就好了?
 const reactVersion = require('../../package.json').version;
 const versions = {
   'packages/react/package.json': require('../../packages/react/package.json')
