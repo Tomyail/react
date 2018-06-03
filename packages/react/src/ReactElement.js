@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+//这个文件的作用是用来构建树状的 element
+//每个 element 只只有 children 没有 parent, 这是单向数据流的结构基础
 import invariant from 'fbjs/lib/invariant';
 import warning from 'fbjs/lib/warning';
 import {REACT_ELEMENT_TYPE} from 'shared/ReactSymbols';
@@ -206,6 +208,7 @@ export function createElement(type, config, children) {
   // Children can be more than one argument, and those are transferred onto
   // the newly allocated props object.
   //这个函数结束3+ 参数,第三个开始剩下的参数都算 children
+  //设置 prop 的 children 属性
   const childrenLength = arguments.length - 2;
   if (childrenLength === 1) {
     props.children = children;
@@ -214,6 +217,7 @@ export function createElement(type, config, children) {
     for (let i = 0; i < childrenLength; i++) {
       childArray[i] = arguments[i + 2];
     }
+    //todo 为什么 dev 要 freeze
     if (__DEV__) {
       if (Object.freeze) {
         Object.freeze(childArray);
@@ -223,6 +227,7 @@ export function createElement(type, config, children) {
   }
 
   // Resolve default props
+  // 把type 的所以静态属性赋值到 props 上面
   if (type && type.defaultProps) {
     const defaultProps = type.defaultProps;
     for (propName in defaultProps) {
@@ -239,8 +244,8 @@ export function createElement(type, config, children) {
       ) {
         const displayName =
           typeof type === 'function'
-            ? type.displayName || type.name || 'Unknown'
-            : type;
+            ? type.displayName || type.name || 'Unknown' //组件要给他设置 displayName, 否则就是 unknown
+            : type; // 字符组件用字符名字( div,image 等)
         if (key) {
           defineKeyPropWarningGetter(props, displayName);
         }
@@ -256,7 +261,7 @@ export function createElement(type, config, children) {
     ref,
     self,
     source,
-    ReactCurrentOwner.current,
+    ReactCurrentOwner.current, //todo  这个什么作用
     props,
   );
 }
