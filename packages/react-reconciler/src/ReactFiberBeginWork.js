@@ -97,6 +97,7 @@ import {
   updateClassInstance,
 } from './ReactFiberClassComponent';
 import MAX_SIGNED_31_BIT_INT from './maxSigned31BitInt';
+import {logEnter} from '../../shared/debug';
 
 const {getCurrentFiberStackAddendum} = ReactDebugCurrentFiber;
 
@@ -112,6 +113,11 @@ if (__DEV__) {
 
 // TODO: Remove this and use reconcileChildrenAtExpirationTime directly.
 function reconcileChildren(current, workInProgress, nextChildren) {
+  logEnter(
+    'ReactFiberBeginWork',
+    'reconcileChildren',
+    'reconcileChildrenAtExpirationTime',
+  );
   reconcileChildrenAtExpirationTime(
     current,
     workInProgress,
@@ -131,6 +137,11 @@ function reconcileChildrenAtExpirationTime(
     // won't update its child set by applying minimal side-effects. Instead,
     // we will add them all to the child before it gets rendered. That means
     // we can optimize this reconciliation pass by not tracking side-effects.
+    logEnter(
+      'ReactFiberBeginWork',
+      'reconcileChildrenAtExpirationTime',
+      'mountChildFibers',
+    );
     workInProgress.child = mountChildFibers(
       workInProgress,
       null,
@@ -144,6 +155,11 @@ function reconcileChildrenAtExpirationTime(
 
     // If we had any progressed work already, that is invalid at this point so
     // let's throw it out.
+    logEnter(
+      'ReactFiberBeginWork',
+      'reconcileChildrenAtExpirationTime',
+      'reconcileChildFibers',
+    );
     workInProgress.child = reconcileChildFibers(
       workInProgress,
       current.child,
@@ -421,16 +437,24 @@ function pushHostRootContext(workInProgress) {
     // Should always be set
     pushTopLevelContextObject(workInProgress, root.context, false);
   }
+  logEnter('ReactFiberBeginWork', 'pushHostRootContext', 'pushHostContainer');
   pushHostContainer(workInProgress, root.containerInfo);
 }
 
 function updateHostRoot(current, workInProgress, renderExpirationTime) {
+  logEnter('ReactFiberBeginWork', 'updateHostRoot', 'pushHostRootContext');
   pushHostRootContext(workInProgress);
   let updateQueue = workInProgress.updateQueue;
   if (updateQueue !== null) {
     const nextProps = workInProgress.pendingProps;
     const prevState = workInProgress.memoizedState;
     const prevChildren = prevState !== null ? prevState.element : null;
+    logEnter(
+      'ReactFiberBeginWork',
+      'updateHostRoot',
+      'processUpdateQueue',
+      '为了给 workInProgress memoizedState 赋值',
+    );
     processUpdateQueue(
       workInProgress,
       updateQueue,
@@ -446,7 +470,13 @@ function updateHostRoot(current, workInProgress, renderExpirationTime) {
     if (nextChildren === prevChildren) {
       // If the state is the same as before, that's a bailout because we had
       // no work that expires at this time.
+      logEnter('ReactFiberBeginWork', 'updateHostRoot', 'resetHydrationState');
       resetHydrationState();
+      logEnter(
+        'ReactFiberBeginWork',
+        'updateHostRoot',
+        'bailoutOnAlreadyFinishedWork',
+      );
       return bailoutOnAlreadyFinishedWork(current, workInProgress);
     }
     const root: FiberRoot = workInProgress.stateNode;
@@ -478,13 +508,21 @@ function updateHostRoot(current, workInProgress, renderExpirationTime) {
     } else {
       // Otherwise reset hydration state in case we aborted and resumed another
       // root.
+      logEnter('ReactFiberBeginWork', 'updateHostRoot', 'resetHydrationState');
       resetHydrationState();
+      logEnter('ReactFiberBeginWork', 'updateHostRoot', 'reconcileChildren');
       reconcileChildren(current, workInProgress, nextChildren);
     }
     return workInProgress.child;
   }
+  logEnter('ReactFiberBeginWork', 'updateHostRoot', 'resetHydrationState');
   resetHydrationState();
   // If there is no update queue, that's a bailout because the root has no props.
+  logEnter(
+    'ReactFiberBeginWork',
+    'updateHostRoot',
+    'bailoutOnAlreadyFinishedWork',
+  );
   return bailoutOnAlreadyFinishedWork(current, workInProgress);
 }
 
@@ -1157,6 +1195,7 @@ function beginWork(
         renderExpirationTime,
       );
     case HostRoot:
+      logEnter('ReactFiberBeginWork', 'beginWork', 'updateHostRoot');
       return updateHostRoot(current, workInProgress, renderExpirationTime);
     case HostComponent:
       return updateHostComponent(current, workInProgress, renderExpirationTime);

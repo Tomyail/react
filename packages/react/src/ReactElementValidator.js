@@ -299,6 +299,7 @@ function validateFragmentProps(fragment) {
   currentlyValidatingElement = null;
 }
 
+//开发版本创建 element
 export function createElementWithValidation(type, props, children) {
   const validType = isValidElementType(type);
 

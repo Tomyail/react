@@ -136,6 +136,7 @@ import {
   commitAttachRef,
   commitDetachRef,
 } from './ReactFiberCommitWork';
+import {logEnter} from '../../shared/debug';
 
 export type Deadline = {
   timeRemaining: () => number,
@@ -913,11 +914,13 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
   return null;
 }
 
+//这个函数很重要!!!!!
 function performUnitOfWork(workInProgress: Fiber): Fiber | null {
   // The current, flushed, state of this fiber is the alternate.
   // Ideally nothing should rely on this, but relying on it here
   // means that we don't need an additional field on the work in
   // progress.
+  //todo 为什么用alternate的
   const current = workInProgress.alternate;
 
   // See if beginning this work spawns more work.
@@ -939,6 +942,7 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
       startBaseRenderTimer();
     }
 
+    logEnter('ReactFiberScheduler', 'performUnitOfWork', 'beginWork');
     next = beginWork(current, workInProgress, nextRenderExpirationTime);
 
     if (workInProgress.mode & ProfileMode) {
@@ -966,6 +970,12 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
 
   if (next === null) {
     // If this doesn't spawn new work, complete the current work.
+    logEnter(
+      'ReactFiberScheduler',
+      'performUnitOfWork',
+      'completeUnitOfWork',
+      "If this doesn't spawn new work, complete the current work.",
+    );
     next = completeUnitOfWork(workInProgress);
   }
 
@@ -978,6 +988,7 @@ function workLoop(isAsync) {
   if (!isAsync) {
     // Flush all expired work.
     while (nextUnitOfWork !== null) {
+      logEnter('ReactFiberScheduler', 'workLoop', 'performUnitOfWork');
       nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
   } else {
@@ -1018,6 +1029,7 @@ function renderRoot(
     nextRoot = root;
     nextRenderExpirationTime = expirationTime;
     nextLatestTimeoutMs = -1;
+    logEnter('ReactFiberScheduler', 'renderRoot', 'createWorkInProgress');
     nextUnitOfWork = createWorkInProgress(
       nextRoot.current,
       null,
@@ -1035,6 +1047,7 @@ function renderRoot(
 
   do {
     try {
+      logEnter('ReactFiberScheduler', 'renderRoot', 'workLoop');
       workLoop(isAsync);
     } catch (thrownValue) {
       if (enableProfilerTimer) {
@@ -1355,7 +1368,17 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
           interruptedBy = fiber;
           resetStack();
         }
+        logEnter(
+          'ReactFiberScheduler',
+          'scheduleWork',
+          'markPendingPriorityLevel',
+        );
         markPendingPriorityLevel(root, expirationTime);
+        logEnter(
+          'ReactFiberScheduler',
+          'scheduleWork',
+          'findNextPendingPriorityLevel',
+        );
         const nextExpirationTimeToWorkOn = findNextPendingPriorityLevel(root);
         if (
           // If we're in the render phase, we don't need to schedule this root
@@ -1365,6 +1388,7 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
           // ...unless this is a different root than the one we're rendering.
           nextRoot !== root
         ) {
+          logEnter('ReactFiberScheduler', 'scheduleWork', 'requestWork');
           requestWork(root, nextExpirationTimeToWorkOn);
         }
         if (nestedUpdateCount > NESTED_UPDATE_LIMIT) {
@@ -1494,6 +1518,7 @@ function requestRetry(root: FiberRoot, expirationTime: ExpirationTime) {
 // requestWork is called by the scheduler whenever a root receives an update.
 // It's up to the renderer to call renderRoot at some point in the future.
 function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
+  logEnter('ReactFiberScheduler', 'requestWork', 'addRootToSchedule');
   addRootToSchedule(root, expirationTime);
 
   if (isRendering) {
@@ -1516,6 +1541,7 @@ function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
 
   // TODO: Get rid of Sync and use current time?
   if (expirationTime === Sync) {
+    logEnter('ReactFiberScheduler', 'requestWork', 'performSyncWork');
     performSyncWork();
   } else {
     scheduleCallbackWithExpiration(expirationTime);
@@ -1630,6 +1656,7 @@ function performAsyncWork(dl) {
 }
 
 function performSyncWork() {
+  logEnter('ReactFiberScheduler', 'performSyncWork', 'performWork');
   performWork(Sync, false, null);
 }
 
@@ -1642,6 +1669,12 @@ function performWork(
 
   // Keep working on roots until there's no more work, or until the we reach
   // the deadline.
+  logEnter(
+    'ReactFiberScheduler',
+    'performWork',
+    'findHighestPriorityRoot',
+    "Keep working on roots until there's no more work, or until the we reach the deadline.",
+  );
   findHighestPriorityRoot();
 
   if (enableProfilerTimer) {
@@ -1678,7 +1711,9 @@ function performWork(
       (minExpirationTime === NoWork ||
         minExpirationTime >= nextFlushedExpirationTime)
     ) {
+      logEnter('ReactFiberScheduler', 'performWork', 'performWorkOnRoot');
       performWorkOnRoot(nextFlushedRoot, nextFlushedExpirationTime, false);
+      logEnter('ReactFiberScheduler', 'performWork', 'findHighestPriorityRoot');
       findHighestPriorityRoot();
     }
   }
@@ -1766,12 +1801,15 @@ function performWorkOnRoot(
     let finishedWork = root.finishedWork;
     if (finishedWork !== null) {
       // This root is already complete. We can commit it.
+      logEnter('ReactFiberScheduler', 'performWorkOnRoot', 'completeRoot');
       completeRoot(root, finishedWork, expirationTime);
     } else {
       root.finishedWork = null;
+      logEnter('ReactFiberScheduler', 'performWorkOnRoot', 'renderRoot');
       finishedWork = renderRoot(root, expirationTime, false);
       if (finishedWork !== null) {
         // We've completed the root. Commit it.
+        logEnter('ReactFiberScheduler', 'performWorkOnRoot', 'completeRoot');
         completeRoot(root, finishedWork, expirationTime);
       }
     }

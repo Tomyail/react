@@ -272,6 +272,7 @@ function shouldConstruct(Component) {
 }
 
 // This is used to create an alternate fiber to do work on.
+// 复制当前的 fiberNode, 并创建alternate 的双向引用. 最后返回新创建的 fiberNode
 export function createWorkInProgress(
   current: Fiber,
   pendingProps: any,

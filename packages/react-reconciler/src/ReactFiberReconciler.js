@@ -45,7 +45,7 @@ import {
   requestWork,
   flushRoot,
   batchedUpdates,
-  unbatchedUpdates,
+  unbatchedUpdates, //初始化渲染
   flushSync,
   flushControlled,
   deferredUpdates,
@@ -56,6 +56,7 @@ import {
 import {createUpdate, enqueueUpdate} from './ReactUpdateQueue';
 import ReactFiberInstrumentation from './ReactFiberInstrumentation';
 import ReactDebugCurrentFiber from './ReactDebugCurrentFiber';
+import {logEnter} from 'shared/debug';
 
 type OpaqueRoot = FiberRoot;
 
@@ -120,6 +121,7 @@ function scheduleRootUpdate(
     }
   }
 
+  logEnter('ReactFiberReconciler', 'scheduleRootUpdate', 'createUpdate');
   const update = createUpdate(expirationTime);
   // Caution: React DevTools currently depends on this property
   // being called "element".
@@ -135,8 +137,10 @@ function scheduleRootUpdate(
     );
     update.callback = callback;
   }
+  logEnter('ReactFiberReconciler', 'scheduleRootUpdate', 'enqueueUpdate');
   enqueueUpdate(current, update, expirationTime);
 
+  logEnter('ReactFiberReconciler', 'scheduleRootUpdate', 'scheduleWork');
   scheduleWork(current, expirationTime);
   return expirationTime;
 }
@@ -163,6 +167,11 @@ export function updateContainerAtExpirationTime(
     }
   }
 
+  logEnter(
+    'ReactFiberReconciler',
+    'updateContainerAtExpirationTime',
+    'getContextForSubtree',
+  );
   const context = getContextForSubtree(parentComponent);
   if (container.context === null) {
     container.context = context;
@@ -170,6 +179,11 @@ export function updateContainerAtExpirationTime(
     container.pendingContext = context;
   }
 
+  logEnter(
+    'ReactFiberReconciler',
+    'updateContainerAtExpirationTime',
+    'scheduleRootUpdate',
+  );
   return scheduleRootUpdate(current, element, expirationTime, callback);
 }
 
@@ -210,6 +224,11 @@ export function updateContainer(
   const current = container.current;
   const currentTime = recalculateCurrentTime();
   const expirationTime = computeExpirationForFiber(currentTime, current);
+  logEnter(
+    'ReactFiberReconciler',
+    'updateContainer',
+    'updateContainerAtExpirationTime',
+  );
   return updateContainerAtExpirationTime(
     element,
     container,

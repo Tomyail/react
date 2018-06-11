@@ -34,6 +34,7 @@ import getComponentName from 'shared/getComponentName';
 import invariant from 'fbjs/lib/invariant';
 import lowPriorityWarning from 'shared/lowPriorityWarning';
 import warning from 'fbjs/lib/warning';
+import {logEnter} from 'shared/debug';
 
 import * as ReactDOMComponentTree from './ReactDOMComponentTree';
 import * as ReactDOMFiberComponent from './ReactDOMFiberComponent';
@@ -332,6 +333,7 @@ type Root = {
 
 function ReactRoot(container: Container, isAsync: boolean, hydrate: boolean) {
   const root = DOMRenderer.createContainer(container, isAsync, hydrate);
+  //全局就一个??
   this._internalRoot = root;
 }
 ReactRoot.prototype.render = function(
@@ -339,6 +341,7 @@ ReactRoot.prototype.render = function(
   callback: ?() => mixed,
 ): Work {
   const root = this._internalRoot;
+  //ReactWork 是什么,.为什么每次都要 new
   const work = new ReactWork();
   callback = callback === undefined ? null : callback;
   if (__DEV__) {
@@ -347,6 +350,7 @@ ReactRoot.prototype.render = function(
   if (callback !== null) {
     work.then(callback);
   }
+  logEnter('ReactRoot', 'render', 'DOMRenderer.updateContainer');
   DOMRenderer.updateContainer(children, root, null, work._onCommit);
   return work;
 };
@@ -452,6 +456,7 @@ ReactGenericBatching.injection.injectRenderer(DOMRenderer);
 
 let warnedAboutHydrateAPI = false;
 
+//通过根真实 dom 创建 root
 function legacyCreateRootFromDOMContainer(
   container: DOMContainer,
   forceHydrate: boolean,
@@ -462,6 +467,7 @@ function legacyCreateRootFromDOMContainer(
   if (!shouldHydrate) {
     let warned = false;
     let rootSibling;
+    //移除根节点的所有子元素(清理)
     while ((rootSibling = container.lastChild)) {
       if (__DEV__) {
         if (
@@ -497,6 +503,7 @@ function legacyCreateRootFromDOMContainer(
   return new ReactRoot(container, isAsync, shouldHydrate);
 }
 
+//将 element 渲染到指定的真实 dom 树上面
 function legacyRenderSubtreeIntoContainer(
   parentComponent: ?React$Component<any, any>,
   children: ReactNodeList,
@@ -516,8 +523,16 @@ function legacyRenderSubtreeIntoContainer(
 
   // TODO: Without `any` type, Flow says "Property cannot be accessed on any
   // member of intersection type." Whyyyyyy.
+  // 检查真实 dom 树上面有没有_reactRootContainer,
   let root: Root = (container._reactRootContainer: any);
   if (!root) {
+    //没有就是第一次挂载,初始化 Root
+    logEnter(
+      'ReactDOM',
+      'legacyRenderSubtreeIntoContainer',
+      'legacyCreateRootFromDOMContainer',
+      '创建 root',
+    );
     // Initial mount
     root = container._reactRootContainer = legacyCreateRootFromDOMContainer(
       container,
@@ -530,8 +545,14 @@ function legacyRenderSubtreeIntoContainer(
         originalCallback.call(instance);
       };
     }
+    logEnter(
+      'ReactDOM',
+      'legacyRenderSubtreeIntoContainer',
+      'DOMRenderer.unbatchedUpdates',
+    );
     // Initial mount should not be batched.
     DOMRenderer.unbatchedUpdates(() => {
+      //todo parentComponent 什么时候有?
       if (parentComponent != null) {
         root.legacy_renderSubtreeIntoContainer(
           parentComponent,
@@ -539,6 +560,11 @@ function legacyRenderSubtreeIntoContainer(
           callback,
         );
       } else {
+        logEnter(
+          'ReactDOM',
+          'legacyRenderSubtreeIntoContainer',
+          'root.render(children, callback)',
+        );
         root.render(children, callback);
       }
     });
@@ -621,11 +647,13 @@ const ReactDOM: Object = {
     );
   },
 
+  //渲染入口!!!!
   render(
     element: React$Element<any>,
     container: DOMContainer,
     callback: ?Function,
   ) {
+    logEnter('ReactDOM', 'render', 'legacyRenderSubtreeIntoContainer');
     return legacyRenderSubtreeIntoContainer(
       null,
       element,

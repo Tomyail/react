@@ -94,6 +94,7 @@ import {
   DidCapture,
 } from 'shared/ReactTypeOfSideEffect';
 import {ClassComponent} from 'shared/ReactTypeOfWork';
+import {logEnter} from 'shared/debug';
 
 import {
   debugRenderPhaseSideEffects,
@@ -104,6 +105,8 @@ import {StrictMode} from './ReactTypeOfMode';
 
 import invariant from 'fbjs/lib/invariant';
 import warning from 'fbjs/lib/warning';
+import {log} from 'util';
+import {logError} from './ReactFiberCommitWork';
 
 export type Update<State> = {
   expirationTime: ExpirationTime,
@@ -271,6 +274,12 @@ export function enqueueUpdate<State>(
   }
   if (queue2 === null || queue1 === queue2) {
     // There's only a single queue.
+    logEnter(
+      'ReactUpdateQueue',
+      'enqueueUpdate',
+      'appendUpdateToQueue',
+      "There's only a single queue",
+    );
     appendUpdateToQueue(queue1, update, expirationTime);
   } else {
     // There are two queues. We need to append the update to both queues,
@@ -446,6 +455,11 @@ export function processUpdateQueue<State>(
     return;
   }
 
+  logEnter(
+    'ReactUpdateQueue',
+    'processUpdateQueue',
+    'ensureWorkInProgressQueueIsAClone',
+  );
   queue = ensureWorkInProgressQueueIsAClone(workInProgress, queue);
 
   if (__DEV__) {
@@ -483,6 +497,7 @@ export function processUpdateQueue<State>(
     } else {
       // This update does have sufficient priority. Process it and compute
       // a new result.
+      logEnter('ReactUpdateQueue', 'processUpdateQueue', 'getStateFromUpdate');
       resultState = getStateFromUpdate(
         workInProgress,
         queue,
@@ -534,6 +549,7 @@ export function processUpdateQueue<State>(
         newExpirationTime = updateExpirationTime;
       }
     } else {
+      logEnter('ReactUpdateQueue', 'processUpdateQueue', 'getStateFromUpdate');
       // This update does have sufficient priority. Process it and compute
       // a new result.
       resultState = getStateFromUpdate(
@@ -579,6 +595,11 @@ export function processUpdateQueue<State>(
   queue.firstCapturedUpdate = newFirstCapturedUpdate;
   queue.expirationTime = newExpirationTime;
 
+  logEnter(
+    'ReactUpdateQueue',
+    'processUpdateQueue',
+    'workInProgress.memoizedState = resultState',
+  );
   workInProgress.memoizedState = resultState;
 
   if (__DEV__) {
