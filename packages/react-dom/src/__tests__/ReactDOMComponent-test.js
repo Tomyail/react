@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -554,39 +554,174 @@ describe('ReactDOMComponent', () => {
       expect(stubStyle.color).toEqual('green');
     });
 
-    it('should reject attribute key injection attack on markup', () => {
+    it('should reject attribute key injection attack on markup for regular DOM (SSR)', () => {
       expect(() => {
         for (let i = 0; i < 3; i++) {
-          const container = document.createElement('div');
-          const element = React.createElement(
+          const element1 = React.createElement(
+            'div',
+            {'blah" onclick="beevil" noise="hi': 'selected'},
+            null,
+          );
+          const element2 = React.createElement(
+            'div',
+            {'></div><script>alert("hi")</script>': 'selected'},
+            null,
+          );
+          let result1 = ReactDOMServer.renderToString(element1);
+          let result2 = ReactDOMServer.renderToString(element2);
+          expect(result1.toLowerCase()).not.toContain('onclick');
+          expect(result2.toLowerCase()).not.toContain('script');
+        }
+      }).toWarnDev([
+        'Warning: Invalid attribute name: `blah" onclick="beevil" noise="hi`',
+        'Warning: Invalid attribute name: `></div><script>alert("hi")</script>`',
+      ]);
+    });
+
+    it('should reject attribute key injection attack on markup for custom elements (SSR)', () => {
+      expect(() => {
+        for (let i = 0; i < 3; i++) {
+          const element1 = React.createElement(
             'x-foo-component',
             {'blah" onclick="beevil" noise="hi': 'selected'},
             null,
           );
-          ReactDOM.render(element, container);
+          const element2 = React.createElement(
+            'x-foo-component',
+            {'></x-foo-component><script>alert("hi")</script>': 'selected'},
+            null,
+          );
+          let result1 = ReactDOMServer.renderToString(element1);
+          let result2 = ReactDOMServer.renderToString(element2);
+          expect(result1.toLowerCase()).not.toContain('onclick');
+          expect(result2.toLowerCase()).not.toContain('script');
         }
-      }).toWarnDev(
+      }).toWarnDev([
         'Warning: Invalid attribute name: `blah" onclick="beevil" noise="hi`',
-      );
+        'Warning: Invalid attribute name: `></x-foo-component><script>alert("hi")</script>`',
+      ]);
     });
 
-    it('should reject attribute key injection attack on update', () => {
+    it('should reject attribute key injection attack on mount for regular DOM', () => {
+      expect(() => {
+        for (let i = 0; i < 3; i++) {
+          const container = document.createElement('div');
+          ReactDOM.render(
+            React.createElement(
+              'div',
+              {'blah" onclick="beevil" noise="hi': 'selected'},
+              null,
+            ),
+            container,
+          );
+          expect(container.firstChild.attributes.length).toBe(0);
+          ReactDOM.unmountComponentAtNode(container);
+          ReactDOM.render(
+            React.createElement(
+              'div',
+              {'></div><script>alert("hi")</script>': 'selected'},
+              null,
+            ),
+            container,
+          );
+          expect(container.firstChild.attributes.length).toBe(0);
+        }
+      }).toWarnDev([
+        'Warning: Invalid attribute name: `blah" onclick="beevil" noise="hi`',
+        'Warning: Invalid attribute name: `></div><script>alert("hi")</script>`',
+      ]);
+    });
+
+    it('should reject attribute key injection attack on mount for custom elements', () => {
+      expect(() => {
+        for (let i = 0; i < 3; i++) {
+          const container = document.createElement('div');
+          ReactDOM.render(
+            React.createElement(
+              'x-foo-component',
+              {'blah" onclick="beevil" noise="hi': 'selected'},
+              null,
+            ),
+            container,
+          );
+          expect(container.firstChild.attributes.length).toBe(0);
+          ReactDOM.unmountComponentAtNode(container);
+          ReactDOM.render(
+            React.createElement(
+              'x-foo-component',
+              {'></x-foo-component><script>alert("hi")</script>': 'selected'},
+              null,
+            ),
+            container,
+          );
+          expect(container.firstChild.attributes.length).toBe(0);
+        }
+      }).toWarnDev([
+        'Warning: Invalid attribute name: `blah" onclick="beevil" noise="hi`',
+        'Warning: Invalid attribute name: `></x-foo-component><script>alert("hi")</script>`',
+      ]);
+    });
+
+    it('should reject attribute key injection attack on update for regular DOM', () => {
+      expect(() => {
+        for (let i = 0; i < 3; i++) {
+          const container = document.createElement('div');
+          const beforeUpdate = React.createElement('div', {}, null);
+          ReactDOM.render(beforeUpdate, container);
+          ReactDOM.render(
+            React.createElement(
+              'div',
+              {'blah" onclick="beevil" noise="hi': 'selected'},
+              null,
+            ),
+            container,
+          );
+          expect(container.firstChild.attributes.length).toBe(0);
+          ReactDOM.render(
+            React.createElement(
+              'div',
+              {'></div><script>alert("hi")</script>': 'selected'},
+              null,
+            ),
+            container,
+          );
+          expect(container.firstChild.attributes.length).toBe(0);
+        }
+      }).toWarnDev([
+        'Warning: Invalid attribute name: `blah" onclick="beevil" noise="hi`',
+        'Warning: Invalid attribute name: `></div><script>alert("hi")</script>`',
+      ]);
+    });
+
+    it('should reject attribute key injection attack on update for custom elements', () => {
       expect(() => {
         for (let i = 0; i < 3; i++) {
           const container = document.createElement('div');
           const beforeUpdate = React.createElement('x-foo-component', {}, null);
           ReactDOM.render(beforeUpdate, container);
-
-          const afterUpdate = React.createElement(
-            'x-foo-component',
-            {'blah" onclick="beevil" noise="hi': 'selected'},
-            null,
+          ReactDOM.render(
+            React.createElement(
+              'x-foo-component',
+              {'blah" onclick="beevil" noise="hi': 'selected'},
+              null,
+            ),
+            container,
           );
-          ReactDOM.render(afterUpdate, container);
+          expect(container.firstChild.attributes.length).toBe(0);
+          ReactDOM.render(
+            React.createElement(
+              'x-foo-component',
+              {'></x-foo-component><script>alert("hi")</script>': 'selected'},
+              null,
+            ),
+            container,
+          );
+          expect(container.firstChild.attributes.length).toBe(0);
         }
-      }).toWarnDev(
+      }).toWarnDev([
         'Warning: Invalid attribute name: `blah" onclick="beevil" noise="hi`',
-      );
+        'Warning: Invalid attribute name: `></x-foo-component><script>alert("hi")</script>`',
+      ]);
     });
 
     it('should update arbitrary attributes for tags containing dashes', () => {
@@ -2371,6 +2506,34 @@ describe('ReactDOMComponent', () => {
     });
   });
 
+  describe('Boolean attributes', function() {
+    it('warns on the ambiguous string value "false"', function() {
+      let el;
+      expect(() => {
+        el = ReactTestUtils.renderIntoDocument(<div hidden="false" />);
+      }).toWarnDev(
+        'Received the string `false` for the boolean attribute `hidden`. ' +
+          'The browser will interpret it as a truthy value. ' +
+          'Did you mean hidden={false}?',
+      );
+
+      expect(el.getAttribute('hidden')).toBe('');
+    });
+
+    it('warns on the potentially-ambiguous string value "true"', function() {
+      let el;
+      expect(() => {
+        el = ReactTestUtils.renderIntoDocument(<div hidden="true" />);
+      }).toWarnDev(
+        'Received the string `true` for the boolean attribute `hidden`. ' +
+          'Although this works, it will not work as expected if you pass the string "false". ' +
+          'Did you mean hidden={true}?',
+      );
+
+      expect(el.getAttribute('hidden')).toBe('');
+    });
+  });
+
   describe('Hyphenated SVG elements', function() {
     it('the font-face element is not a custom element', function() {
       let el;
@@ -2438,6 +2601,102 @@ describe('ReactDOMComponent', () => {
       expect(node.hasAttribute('onx')).toBe(false);
       ReactDOM.render(<some-custom-element onx="bar" />, container);
       expect(node.getAttribute('onx')).toBe('bar');
+    });
+  });
+
+  it('receives events in specific order', () => {
+    let eventOrder = [];
+    let track = tag => () => eventOrder.push(tag);
+    let outerRef = React.createRef();
+    let innerRef = React.createRef();
+
+    function OuterReactApp() {
+      return (
+        <div
+          ref={outerRef}
+          onClick={track('outer bubble')}
+          onClickCapture={track('outer capture')}
+        />
+      );
+    }
+
+    function InnerReactApp() {
+      return (
+        <div
+          ref={innerRef}
+          onClick={track('inner bubble')}
+          onClickCapture={track('inner capture')}
+        />
+      );
+    }
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    try {
+      ReactDOM.render(<OuterReactApp />, container);
+      ReactDOM.render(<InnerReactApp />, outerRef.current);
+
+      document.addEventListener('click', track('document bubble'));
+      document.addEventListener('click', track('document capture'), true);
+
+      innerRef.current.click();
+
+      // The order we receive here is not ideal since it is expected that the
+      // capture listener fire before all bubble listeners. Other React apps
+      // might depend on this.
+      //
+      // @see https://github.com/facebook/react/pull/12919#issuecomment-395224674
+      expect(eventOrder).toEqual([
+        'document capture',
+        'inner capture',
+        'inner bubble',
+        'outer capture',
+        'outer bubble',
+        'document bubble',
+      ]);
+    } finally {
+      document.body.removeChild(container);
+    }
+  });
+
+  describe('iOS Tap Highlight', () => {
+    it('adds onclick handler to elements with onClick prop', () => {
+      const container = document.createElement('div');
+
+      const elementRef = React.createRef();
+      function Component() {
+        return <div ref={elementRef} onClick={() => {}} />;
+      }
+
+      ReactDOM.render(<Component />, container);
+      expect(typeof elementRef.current.onclick).toBe('function');
+    });
+
+    it('adds onclick handler to a portal root', () => {
+      const container = document.createElement('div');
+      const portalContainer = document.createElement('div');
+
+      function Component() {
+        return ReactDOM.createPortal(
+          <div onClick={() => {}} />,
+          portalContainer,
+        );
+      }
+
+      ReactDOM.render(<Component />, container);
+      expect(typeof portalContainer.onclick).toBe('function');
+    });
+
+    it('does not add onclick handler to the React root', () => {
+      const container = document.createElement('div');
+
+      function Component() {
+        return <div onClick={() => {}} />;
+      }
+
+      ReactDOM.render(<Component />, container);
+      expect(typeof container.onclick).not.toBe('function');
     });
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -18,6 +18,7 @@ describe('forwardRef', () => {
     jest.resetModules();
     ReactFeatureFlags = require('shared/ReactFeatureFlags');
     ReactFeatureFlags.debugRenderPhaseSideEffectsForStrictMode = false;
+    ReactFeatureFlags.replayFailedUnitOfWorkWithInvokeGuardedCallback = false;
     React = require('react');
     ReactNoop = require('react-noop-renderer');
   });
@@ -175,6 +176,13 @@ describe('forwardRef', () => {
       'ErrorBoundary.render: try',
       'Wrapper',
       'BadRender throw',
+
+      // React retries one more time
+      'ErrorBoundary.render: try',
+      'Wrapper',
+      'BadRender throw',
+
+      // Errored again on retry. Now handle it.
       'ErrorBoundary.componentDidCatch',
       'ErrorBoundary.render: catch',
     ]);

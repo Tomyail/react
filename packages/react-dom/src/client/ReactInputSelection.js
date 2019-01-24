@@ -1,18 +1,59 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-import containsNode from 'fbjs/lib/containsNode';
-import getActiveElement from 'fbjs/lib/getActiveElement';
+import getActiveElement from './getActiveElement';
 
-import * as ReactDOMSelection from './ReactDOMSelection';
-import {ELEMENT_NODE} from '../shared/HTMLNodeType';
+import {getOffsets, setOffsets} from './ReactDOMSelection';
+import {ELEMENT_NODE, TEXT_NODE} from '../shared/HTMLNodeType';
+
+function isTextNode(node) {
+  return node && node.nodeType === TEXT_NODE;
+}
+
+function containsNode(outerNode, innerNode) {
+  if (!outerNode || !innerNode) {
+    return false;
+  } else if (outerNode === innerNode) {
+    return true;
+  } else if (isTextNode(outerNode)) {
+    return false;
+  } else if (isTextNode(innerNode)) {
+    return containsNode(outerNode, innerNode.parentNode);
+  } else if ('contains' in outerNode) {
+    return outerNode.contains(innerNode);
+  } else if (outerNode.compareDocumentPosition) {
+    return !!(outerNode.compareDocumentPosition(innerNode) & 16);
+  } else {
+    return false;
+  }
+}
 
 function isInDocument(node) {
-  return containsNode(document.documentElement, node);
+  return (
+    node &&
+    node.ownerDocument &&
+    containsNode(node.ownerDocument.documentElement, node)
+  );
+}
+
+function getActiveElementDeep() {
+  let win = window;
+  let element = getActiveElement();
+  while (element instanceof win.HTMLIFrameElement) {
+    // Accessing the contentDocument of a HTMLIframeElement can cause the browser
+    // to throw, e.g. if it has a cross-origin src attribute
+    try {
+      win = element.contentDocument.defaultView;
+    } catch (e) {
+      return element;
+    }
+    element = getActiveElement(win.document);
+  }
+  return element;
 }
 
 /**
@@ -43,7 +84,7 @@ export function hasSelectionCapabilities(elem) {
 }
 
 export function getSelectionInformation() {
-  const focusedElem = getActiveElement();
+  const focusedElem = getActiveElementDeep();
   return {
     focusedElem: focusedElem,
     selectionRange: hasSelectionCapabilities(focusedElem)
@@ -58,7 +99,7 @@ export function getSelectionInformation() {
  * nodes and place them back in, resulting in focus being lost.
  */
 export function restoreSelection(priorSelectionInformation) {
-  const curFocusedElem = getActiveElement();
+  const curFocusedElem = getActiveElementDeep();
   const priorFocusedElem = priorSelectionInformation.focusedElem;
   const priorSelectionRange = priorSelectionInformation.selectionRange;
   if (curFocusedElem !== priorFocusedElem && isInDocument(priorFocusedElem)) {
@@ -82,7 +123,9 @@ export function restoreSelection(priorSelectionInformation) {
       }
     }
 
-    priorFocusedElem.focus();
+    if (typeof priorFocusedElem.focus === 'function') {
+      priorFocusedElem.focus();
+    }
 
     for (let i = 0; i < ancestors.length; i++) {
       const info = ancestors[i];
@@ -109,7 +152,7 @@ export function getSelection(input) {
     };
   } else {
     // Content editable or old IE textarea.
-    selection = ReactDOMSelection.getOffsets(input);
+    selection = getOffsets(input);
   }
 
   return selection || {start: 0, end: 0};
@@ -131,6 +174,6 @@ export function setSelection(input, offsets) {
     input.selectionStart = start;
     input.selectionEnd = Math.min(end, input.value.length);
   } else {
-    ReactDOMSelection.setOffsets(input, offsets);
+    setOffsets(input, offsets);
   }
 }

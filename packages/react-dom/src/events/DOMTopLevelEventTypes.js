@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -56,6 +56,7 @@ export const TOP_CONTEXT_MENU = unsafeCastStringToDOMTopLevelType(
 export const TOP_COPY = unsafeCastStringToDOMTopLevelType('copy');
 export const TOP_CUT = unsafeCastStringToDOMTopLevelType('cut');
 export const TOP_DOUBLE_CLICK = unsafeCastStringToDOMTopLevelType('dblclick');
+export const TOP_AUX_CLICK = unsafeCastStringToDOMTopLevelType('auxclick');
 export const TOP_DRAG = unsafeCastStringToDOMTopLevelType('drag');
 export const TOP_DRAG_END = unsafeCastStringToDOMTopLevelType('dragend');
 export const TOP_DRAG_ENTER = unsafeCastStringToDOMTopLevelType('dragenter');

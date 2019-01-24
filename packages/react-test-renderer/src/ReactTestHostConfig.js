@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -7,9 +7,13 @@
  * @flow
  */
 
-import emptyObject from 'fbjs/lib/emptyObject';
-
-import * as TestRendererScheduling from './ReactTestRendererScheduling';
+import warning from 'shared/warning';
+import {
+  nowImplementation as TestRendererSchedulingNowImplementation,
+  scheduleDeferredCallback as TestRendererSchedulingScheduleDeferredCallback,
+  cancelDeferredCallback as TestRendererSchedulingCancelDeferredCallback,
+  shouldYield as TestRendererSchedulingShouldYield,
+} from './ReactTestRendererScheduling';
 
 export type Type = string;
 export type Props = Object;
@@ -21,12 +25,14 @@ export type Container = {|
 export type Instance = {|
   type: string,
   props: Object,
+  isHidden: boolean,
   children: Array<Instance | TextInstance>,
   rootContainerInstance: Container,
   tag: 'INSTANCE',
 |};
 export type TextInstance = {|
   text: string,
+  isHidden: boolean,
   tag: 'TEXT',
 |};
 export type HydratableInstance = Instance | TextInstance;
@@ -34,11 +40,18 @@ export type PublicInstance = Instance | TextInstance;
 export type HostContext = Object;
 export type UpdatePayload = Object;
 export type ChildSet = void; // Unused
-
-const UPDATE_SIGNAL = {};
+export type TimeoutHandle = TimeoutID;
+export type NoTimeout = -1;
 
 export * from 'shared/HostConfigWithNoPersistence';
 export * from 'shared/HostConfigWithNoHydration';
+
+const NO_CONTEXT = {};
+const UPDATE_SIGNAL = {};
+if (__DEV__) {
+  Object.freeze(NO_CONTEXT);
+  Object.freeze(UPDATE_SIGNAL);
+}
 
 export function getPublicInstance(inst: Instance | TextInstance): * {
   switch (inst.tag) {
@@ -57,6 +70,15 @@ export function appendChild(
   parentInstance: Instance | Container,
   child: Instance | TextInstance,
 ): void {
+  if (__DEV__) {
+    warning(
+      Array.isArray(parentInstance.children),
+      'An invalid container has been provided. ' +
+        'This may indicate that another renderer is being used in addition to the test renderer. ' +
+        '(For example, ReactDOM.createPortal inside of a ReactTestRenderer tree.) ' +
+        'This is not supported.',
+    );
+  }
   const index = parentInstance.children.indexOf(child);
   if (index !== -1) {
     parentInstance.children.splice(index, 1);
@@ -88,7 +110,7 @@ export function removeChild(
 export function getRootHostContext(
   rootContainerInstance: Container,
 ): HostContext {
-  return emptyObject;
+  return NO_CONTEXT;
 }
 
 export function getChildHostContext(
@@ -96,7 +118,7 @@ export function getChildHostContext(
   type: string,
   rootContainerInstance: Container,
 ): HostContext {
-  return emptyObject;
+  return NO_CONTEXT;
 }
 
 export function prepareForCommit(containerInfo: Container): void {
@@ -117,6 +139,7 @@ export function createInstance(
   return {
     type,
     props,
+    isHidden: false,
     children: [],
     rootContainerInstance,
     tag: 'INSTANCE',
@@ -171,18 +194,22 @@ export function createTextInstance(
 ): TextInstance {
   return {
     text,
+    isHidden: false,
     tag: 'TEXT',
   };
 }
 
-export const isPrimaryRenderer = true;
+export const isPrimaryRenderer = false;
 // This approach enables `now` to be mocked by tests,
 // Even after the reconciler has initialized and read host config values.
-export const now = () => TestRendererScheduling.nowImplementation();
-export const scheduleDeferredCallback =
-  TestRendererScheduling.scheduleDeferredCallback;
-export const cancelDeferredCallback =
-  TestRendererScheduling.cancelDeferredCallback;
+export const now = () => TestRendererSchedulingNowImplementation();
+export const scheduleDeferredCallback = TestRendererSchedulingScheduleDeferredCallback;
+export const cancelDeferredCallback = TestRendererSchedulingCancelDeferredCallback;
+export const shouldYield = TestRendererSchedulingShouldYield;
+
+export const scheduleTimeout = setTimeout;
+export const cancelTimeout = clearTimeout;
+export const noTimeout = -1;
 
 // -------------------
 //     Mutation
@@ -226,3 +253,22 @@ export function resetTextContent(testElement: Instance): void {
 export const appendChildToContainer = appendChild;
 export const insertInContainerBefore = insertBefore;
 export const removeChildFromContainer = removeChild;
+
+export function hideInstance(instance: Instance): void {
+  instance.isHidden = true;
+}
+
+export function hideTextInstance(textInstance: TextInstance): void {
+  textInstance.isHidden = true;
+}
+
+export function unhideInstance(instance: Instance, props: Props): void {
+  instance.isHidden = false;
+}
+
+export function unhideTextInstance(
+  textInstance: TextInstance,
+  text: string,
+): void {
+  textInstance.isHidden = false;
+}

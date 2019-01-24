@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -8,7 +8,7 @@
 import type {TopLevelType} from 'events/TopLevelEventTypes';
 
 import {accumulateTwoPhaseDispatches} from 'events/EventPropagators';
-import ExecutionEnvironment from 'fbjs/lib/ExecutionEnvironment';
+import {canUseDOM} from 'shared/ExecutionEnvironment';
 
 import {
   TOP_BLUR,
@@ -22,18 +22,21 @@ import {
   TOP_TEXT_INPUT,
   TOP_PASTE,
 } from './DOMTopLevelEventTypes';
-import * as FallbackCompositionState from './FallbackCompositionState';
+import {
+  getData as FallbackCompositionStateGetData,
+  initialize as FallbackCompositionStateInitialize,
+  reset as FallbackCompositionStateReset,
+} from './FallbackCompositionState';
 import SyntheticCompositionEvent from './SyntheticCompositionEvent';
 import SyntheticInputEvent from './SyntheticInputEvent';
 
 const END_KEYCODES = [9, 13, 27, 32]; // Tab, Return, Esc, Space
 const START_KEYCODE = 229;
 
-const canUseCompositionEvent =
-  ExecutionEnvironment.canUseDOM && 'CompositionEvent' in window;
+const canUseCompositionEvent = canUseDOM && 'CompositionEvent' in window;
 
 let documentMode = null;
-if (ExecutionEnvironment.canUseDOM && 'documentMode' in document) {
+if (canUseDOM && 'documentMode' in document) {
   documentMode = document.documentMode;
 }
 
@@ -41,13 +44,13 @@ if (ExecutionEnvironment.canUseDOM && 'documentMode' in document) {
 // directly represent `beforeInput`. The IE `textinput` event is not as
 // useful, so we don't use it.
 const canUseTextInputEvent =
-  ExecutionEnvironment.canUseDOM && 'TextEvent' in window && !documentMode;
+  canUseDOM && 'TextEvent' in window && !documentMode;
 
 // In IE9+, we have access to composition events, but the data supplied
 // by the native compositionend event may be incorrect. Japanese ideographic
 // spaces, for instance (\u3000) are not recorded correctly.
 const useFallbackCompositionData =
-  ExecutionEnvironment.canUseDOM &&
+  canUseDOM &&
   (!canUseCompositionEvent ||
     (documentMode && documentMode > 8 && documentMode <= 11));
 
@@ -200,6 +203,20 @@ function getDataFromCustomEvent(nativeEvent) {
   return null;
 }
 
+/**
+ * Check if a composition event was triggered by Korean IME.
+ * Our fallback mode does not work well with IE's Korean IME,
+ * so just use native composition events when Korean IME is used.
+ * Although CompositionEvent.locale property is deprecated,
+ * it is available in IE, where our fallback mode is enabled.
+ *
+ * @param {object} nativeEvent
+ * @return {boolean}
+ */
+function isUsingKoreanIME(nativeEvent) {
+  return nativeEvent.locale === 'ko';
+}
+
 // Track the current IME composition status, if any.
 let isComposing = false;
 
@@ -229,14 +246,14 @@ function extractCompositionEvent(
     return null;
   }
 
-  if (useFallbackCompositionData) {
+  if (useFallbackCompositionData && !isUsingKoreanIME(nativeEvent)) {
     // The current composition is stored statically and must not be
     // overwritten while composition continues.
     if (!isComposing && eventType === eventTypes.compositionStart) {
-      isComposing = FallbackCompositionState.initialize(nativeEventTarget);
+      isComposing = FallbackCompositionStateInitialize(nativeEventTarget);
     } else if (eventType === eventTypes.compositionEnd) {
       if (isComposing) {
-        fallbackData = FallbackCompositionState.getData();
+        fallbackData = FallbackCompositionStateGetData();
       }
     }
   }
@@ -301,7 +318,7 @@ function getNativeBeforeInputChars(topLevelType: TopLevelType, nativeEvent) {
 
       // If it's a spacebar character, assume that we have already handled
       // it at the keypress level and bail immediately. Android Chrome
-      // doesn't give us keycodes, so we need to blacklist it.
+      // doesn't give us keycodes, so we need to ignore it.
       if (chars === SPACEBAR_CHAR && hasSpaceKeypress) {
         return null;
       }
@@ -333,8 +350,8 @@ function getFallbackBeforeInputChars(topLevelType: TopLevelType, nativeEvent) {
       (!canUseCompositionEvent &&
         isFallbackCompositionEnd(topLevelType, nativeEvent))
     ) {
-      const chars = FallbackCompositionState.getData();
-      FallbackCompositionState.reset();
+      const chars = FallbackCompositionStateGetData();
+      FallbackCompositionStateReset();
       isComposing = false;
       return chars;
     }
@@ -378,7 +395,9 @@ function getFallbackBeforeInputChars(topLevelType: TopLevelType, nativeEvent) {
       }
       return null;
     case TOP_COMPOSITION_END:
-      return useFallbackCompositionData ? null : nativeEvent.data;
+      return useFallbackCompositionData && !isUsingKoreanIME(nativeEvent)
+        ? null
+        : nativeEvent.data;
     default:
       return null;
   }

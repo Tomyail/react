@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,7 +10,7 @@
 import {getListener, runExtractedEventsInBatch} from 'events/EventPluginHub';
 import {registrationNameModules} from 'events/EventPluginRegistry';
 import {batchedUpdates} from 'events/ReactGenericBatching';
-import warning from 'fbjs/lib/warning';
+import warningWithoutStack from 'shared/warningWithoutStack';
 
 import {getInstanceFromNode} from './ReactNativeComponentTree';
 
@@ -87,7 +87,7 @@ const removeTouchesAtIndices = function(
  * @param {TopLevelType} topLevelType Top level type of event.
  * @param {?object} nativeEventParam Object passed from native.
  */
-export function _receiveRootNodeIDEvent(
+function _receiveRootNodeIDEvent(
   rootNodeID: number,
   topLevelType: TopLevelType,
   nativeEventParam: ?AnyNativeEvent,
@@ -168,7 +168,7 @@ export function receiveTouches(
     if (target !== null && target !== undefined) {
       if (target < 1) {
         if (__DEV__) {
-          warning(
+          warningWithoutStack(
             false,
             'A view is reporting that a touch occurred on tag zero.',
           );

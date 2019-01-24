@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -12,35 +12,45 @@ import type {ReactNodeList} from 'shared/ReactTypes';
 
 import './ReactFabricInjection';
 
-import * as ReactFabricRenderer from 'react-reconciler/inline.fabric';
+import {
+  findHostInstance,
+  findHostInstanceWithWarning,
+  batchedUpdates as batchedUpdatesImpl,
+  interactiveUpdates,
+  flushInteractiveUpdates,
+  createContainer,
+  updateContainer,
+  injectIntoDevTools,
+  getPublicRootInstance,
+} from 'react-reconciler/inline.fabric';
 
-import * as ReactPortal from 'shared/ReactPortal';
-import * as ReactGenericBatching from 'events/ReactGenericBatching';
+import {createPortal} from 'shared/ReactPortal';
+import {setBatchingImplementation} from 'events/ReactGenericBatching';
 import ReactVersion from 'shared/ReactVersion';
 
 import NativeMethodsMixin from './NativeMethodsMixin';
 import ReactNativeComponent from './ReactNativeComponent';
-import * as ReactNativeComponentTree from './ReactNativeComponentTree';
+import {getClosestInstanceFromNode} from './ReactFabricComponentTree';
 import {getInspectorDataForViewTag} from './ReactNativeFiberInspector';
 
-import {ReactCurrentOwner} from 'shared/ReactGlobalSharedState';
+import ReactSharedInternals from 'shared/ReactSharedInternals';
 import getComponentName from 'shared/getComponentName';
-import warning from 'fbjs/lib/warning';
+import warningWithoutStack from 'shared/warningWithoutStack';
 
-const findHostInstance = ReactFabricRenderer.findHostInstance;
+const ReactCurrentOwner = ReactSharedInternals.ReactCurrentOwner;
 
 function findNodeHandle(componentOrHandle: any): ?number {
   if (__DEV__) {
     const owner = ReactCurrentOwner.current;
     if (owner !== null && owner.stateNode !== null) {
-      warning(
+      warningWithoutStack(
         owner.stateNode._warnedAboutRefsInRender,
         '%s is accessing findNodeHandle inside its render(). ' +
           'render() should be a pure function of props and state. It should ' +
           'never access something that requires stale data from the previous ' +
           'render, such as refs. Move this logic to componentDidMount and ' +
           'componentDidUpdate instead.',
-        getComponentName(owner) || 'A component',
+        getComponentName(owner.type) || 'A component',
       );
 
       owner.stateNode._warnedAboutRefsInRender = true;
@@ -59,7 +69,16 @@ function findNodeHandle(componentOrHandle: any): ?number {
   if (componentOrHandle.canonical && componentOrHandle.canonical._nativeTag) {
     return componentOrHandle.canonical._nativeTag;
   }
-  const hostInstance = findHostInstance(componentOrHandle);
+  let hostInstance;
+  if (__DEV__) {
+    hostInstance = findHostInstanceWithWarning(
+      componentOrHandle,
+      'findNodeHandle',
+    );
+  } else {
+    hostInstance = findHostInstance(componentOrHandle);
+  }
+
   if (hostInstance == null) {
     return hostInstance;
   }
@@ -72,7 +91,11 @@ function findNodeHandle(componentOrHandle: any): ?number {
   return hostInstance._nativeTag;
 }
 
-ReactGenericBatching.injection.injectRenderer(ReactFabricRenderer);
+setBatchingImplementation(
+  batchedUpdatesImpl,
+  interactiveUpdates,
+  flushInteractiveUpdates,
+);
 
 const roots = new Map();
 
@@ -87,19 +110,19 @@ const ReactFabric: ReactFabricType = {
     if (!root) {
       // TODO (bvaughn): If we decide to keep the wrapper component,
       // We could create a wrapper for containerTag as well to reduce special casing.
-      root = ReactFabricRenderer.createContainer(containerTag, false, false);
+      root = createContainer(containerTag, false, false);
       roots.set(containerTag, root);
     }
-    ReactFabricRenderer.updateContainer(element, root, null, callback);
+    updateContainer(element, root, null, callback);
 
-    return ReactFabricRenderer.getPublicRootInstance(root);
+    return getPublicRootInstance(root);
   },
 
   unmountComponentAtNode(containerTag: number) {
     const root = roots.get(containerTag);
     if (root) {
       // TODO: Is it safe to reset this now or should I wait since this unmount could be deferred?
-      ReactFabricRenderer.updateContainer(null, root, null, () => {
+      updateContainer(null, root, null, () => {
         roots.delete(containerTag);
       });
     }
@@ -110,7 +133,7 @@ const ReactFabric: ReactFabricType = {
     containerTag: number,
     key: ?string = null,
   ) {
-    return ReactPortal.createPortal(children, containerTag, null, key);
+    return createPortal(children, containerTag, null, key);
   },
 
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED: {
@@ -119,8 +142,8 @@ const ReactFabric: ReactFabricType = {
   },
 };
 
-ReactFabricRenderer.injectIntoDevTools({
-  findFiberByHostInstance: ReactNativeComponentTree.getClosestInstanceFromNode,
+injectIntoDevTools({
+  findFiberByHostInstance: getClosestInstanceFromNode,
   getInspectorDataForViewTag: getInspectorDataForViewTag,
   bundleType: __DEV__ ? 1 : 0,
   version: ReactVersion,

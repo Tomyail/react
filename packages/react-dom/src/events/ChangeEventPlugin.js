@@ -1,17 +1,17 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as EventPluginHub from 'events/EventPluginHub';
+import {runEventsInBatch} from 'events/EventPluginHub';
 import {accumulateTwoPhaseDispatches} from 'events/EventPropagators';
 import {enqueueStateRestore} from 'events/ReactControlledComponent';
 import {batchedUpdates} from 'events/ReactGenericBatching';
 import SyntheticEvent from 'events/SyntheticEvent';
 import isTextInputElement from 'shared/isTextInputElement';
-import ExecutionEnvironment from 'fbjs/lib/ExecutionEnvironment';
+import {canUseDOM} from 'shared/ExecutionEnvironment';
 
 import {
   TOP_BLUR,
@@ -26,8 +26,9 @@ import {
 import getEventTarget from './getEventTarget';
 import isEventSupported from './isEventSupported';
 import {getNodeFromInstance} from '../client/ReactDOMComponentTree';
-import * as inputValueTracking from '../client/inputValueTracking';
-import {setDefaultValue} from '../client/ReactDOMFiberInput';
+import {updateValueIfChanged} from '../client/inputValueTracking';
+import {setDefaultValue} from '../client/ReactDOMInput';
+import {disableInputAttributeSyncing} from 'shared/ReactFeatureFlags';
 
 const eventTypes = {
   change: {
@@ -99,12 +100,12 @@ function manualDispatchChangeEvent(nativeEvent) {
 }
 
 function runEventInBatch(event) {
-  EventPluginHub.runEventsInBatch(event, false);
+  runEventsInBatch(event);
 }
 
 function getInstIfValueChanged(targetInst) {
   const targetNode = getNodeFromInstance(targetInst);
-  if (inputValueTracking.updateValueIfChanged(targetNode)) {
+  if (updateValueIfChanged(targetNode)) {
     return targetInst;
   }
 }
@@ -119,7 +120,7 @@ function getTargetInstForChangeEvent(topLevelType, targetInst) {
  * SECTION: handle `input` event
  */
 let isInputEventSupported = false;
-if (ExecutionEnvironment.canUseDOM) {
+if (canUseDOM) {
   // IE9 claims to support the input event but fails to trigger it when
   // deleting text, so we ignore its input events.
   isInputEventSupported =
@@ -231,21 +232,17 @@ function getTargetInstForInputOrChangeEvent(topLevelType, targetInst) {
   }
 }
 
-function handleControlledInputBlur(inst, node) {
-  // TODO: In IE, inst is occasionally null. Why?
-  if (inst == null) {
-    return;
-  }
-
-  // Fiber and ReactDOM keep wrapper state in separate places
-  let state = inst._wrapperState || node._wrapperState;
+function handleControlledInputBlur(node) {
+  let state = node._wrapperState;
 
   if (!state || !state.controlled || node.type !== 'number') {
     return;
   }
 
-  // If controlled, assign the value attribute to the current value on blur
-  setDefaultValue(node, 'number', node.value);
+  if (!disableInputAttributeSyncing) {
+    // If controlled, assign the value attribute to the current value on blur
+    setDefaultValue(node, 'number', node.value);
+  }
 }
 
 /**
@@ -303,7 +300,7 @@ const ChangeEventPlugin = {
 
     // When blurring, set the value attribute for number inputs
     if (topLevelType === TOP_BLUR) {
-      handleControlledInputBlur(targetInst, targetNode);
+      handleControlledInputBlur(targetNode);
     }
   },
 };

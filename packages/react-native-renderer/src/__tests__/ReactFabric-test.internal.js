@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -15,9 +15,10 @@ let ReactFabric;
 let createReactNativeComponentClass;
 let UIManager;
 let FabricUIManager;
+let StrictMode;
 
 jest.mock('shared/ReactFeatureFlags', () =>
-  require('shared/forks/ReactFeatureFlags.native-fabric-oss'),
+  require('shared/forks/ReactFeatureFlags.native-oss'),
 );
 
 describe('ReactFabric', () => {
@@ -25,6 +26,7 @@ describe('ReactFabric', () => {
     jest.resetModules();
 
     React = require('react');
+    StrictMode = React.StrictMode;
     ReactFabric = require('react-native-renderer/fabric');
     FabricUIManager = require('FabricUIManager');
     UIManager = require('UIManager');
@@ -237,6 +239,45 @@ describe('ReactFabric', () => {
     expect(FabricUIManager.__dumpHierarchyForJestTestsOnly()).toMatchSnapshot();
   });
 
+  it('recreates host parents even if only children changed', () => {
+    const View = createReactNativeComponentClass('RCTView', () => ({
+      validAttributes: {title: true},
+      uiViewClassName: 'RCTView',
+    }));
+
+    const before = 'abcdefghijklmnopqrst';
+    const after = 'mxhpgwfralkeoivcstzy';
+
+    class Component extends React.Component {
+      state = {
+        chars: before,
+      };
+      render() {
+        const chars = this.state.chars.split('');
+        return (
+          <View>{chars.map(text => <View key={text} title={text} />)}</View>
+        );
+      }
+    }
+
+    const ref = React.createRef();
+    // Wrap in a host node.
+    ReactFabric.render(
+      <View>
+        <Component ref={ref} />
+      </View>,
+      11,
+    );
+    expect(FabricUIManager.__dumpHierarchyForJestTestsOnly()).toMatchSnapshot();
+
+    // Call setState() so that we skip over the top-level host node.
+    // It should still get recreated despite a bailout.
+    ref.current.setState({
+      chars: after,
+    });
+    expect(FabricUIManager.__dumpHierarchyForJestTestsOnly()).toMatchSnapshot();
+  });
+
   it('calls setState with no arguments', () => {
     let mockArgs;
     class Component extends React.Component {
@@ -351,5 +392,125 @@ describe('ReactFabric', () => {
       </Text>,
       11,
     );
+  });
+
+  it('dispatches events to the last committed props', () => {
+    const View = createReactNativeComponentClass('RCTView', () => ({
+      validAttributes: {},
+      uiViewClassName: 'RCTView',
+      directEventTypes: {
+        topTouchStart: {
+          registrationName: 'onTouchStart',
+        },
+      },
+    }));
+
+    const touchStart = jest.fn();
+    const touchStart2 = jest.fn();
+
+    ReactFabric.render(<View onTouchStart={touchStart} />, 11);
+
+    expect(FabricUIManager.createNode.mock.calls.length).toBe(1);
+    expect(FabricUIManager.registerEventHandler.mock.calls.length).toBe(1);
+
+    let [, , , , instanceHandle] = FabricUIManager.createNode.mock.calls[0];
+    let [dispatchEvent] = FabricUIManager.registerEventHandler.mock.calls[0];
+
+    let touchEvent = {
+      touches: [],
+      changedTouches: [],
+    };
+
+    expect(touchStart).not.toBeCalled();
+
+    dispatchEvent(instanceHandle, 'topTouchStart', touchEvent);
+
+    expect(touchStart).toBeCalled();
+    expect(touchStart2).not.toBeCalled();
+
+    ReactFabric.render(<View onTouchStart={touchStart2} />, 11);
+
+    // Intentionally dispatch to the same instanceHandle again.
+    dispatchEvent(instanceHandle, 'topTouchStart', touchEvent);
+
+    // The current semantics dictate that we always dispatch to the last committed
+    // props even though the actual scheduling of the event could have happened earlier.
+    // This could change in the future.
+    expect(touchStart2).toBeCalled();
+  });
+
+  it('findNodeHandle should warn if used to find a host component inside StrictMode', () => {
+    const View = createReactNativeComponentClass('RCTView', () => ({
+      validAttributes: {foo: true},
+      uiViewClassName: 'RCTView',
+    }));
+
+    let parent = undefined;
+    let child = undefined;
+
+    class ContainsStrictModeChild extends React.Component {
+      render() {
+        return (
+          <StrictMode>
+            <View ref={n => (child = n)} />
+          </StrictMode>
+        );
+      }
+    }
+
+    ReactFabric.render(<ContainsStrictModeChild ref={n => (parent = n)} />, 11);
+
+    let match;
+    expect(() => (match = ReactFabric.findNodeHandle(parent))).toWarnDev([
+      'Warning: findNodeHandle is deprecated in StrictMode. ' +
+        'findNodeHandle was passed an instance of ContainsStrictModeChild which renders StrictMode children. ' +
+        'Instead, add a ref directly to the element you want to reference.' +
+        '\n' +
+        '\n    in RCTView (at **)' +
+        '\n    in StrictMode (at **)' +
+        '\n    in ContainsStrictModeChild (at **)' +
+        '\n' +
+        '\nLearn more about using refs safely here:' +
+        '\nhttps://fb.me/react-strict-mode-find-node',
+    ]);
+    expect(match).toBe(child._nativeTag);
+  });
+
+  it('findNodeHandle should warn if passed a component that is inside StrictMode', () => {
+    const View = createReactNativeComponentClass('RCTView', () => ({
+      validAttributes: {foo: true},
+      uiViewClassName: 'RCTView',
+    }));
+
+    let parent = undefined;
+    let child = undefined;
+
+    class IsInStrictMode extends React.Component {
+      render() {
+        return <View ref={n => (child = n)} />;
+      }
+    }
+
+    ReactFabric.render(
+      <StrictMode>
+        <IsInStrictMode ref={n => (parent = n)} />
+      </StrictMode>,
+      11,
+    );
+
+    let match;
+    expect(() => (match = ReactFabric.findNodeHandle(parent))).toWarnDev([
+      'Warning: findNodeHandle is deprecated in StrictMode. ' +
+        'findNodeHandle was passed an instance of IsInStrictMode which is inside StrictMode. ' +
+        'Instead, add a ref directly to the element you want to reference.' +
+        '\n' +
+        '\n    in RCTView (at **)' +
+        '\n    in IsInStrictMode (at **)' +
+        '\n    in StrictMode (at **)' +
+        '\n' +
+        '\nLearn more about using refs safely here:' +
+        '\nhttps://fb.me/react-strict-mode-find-node',
+    ]);
+    expect(match).toBe(child._nativeTag);
   });
 });

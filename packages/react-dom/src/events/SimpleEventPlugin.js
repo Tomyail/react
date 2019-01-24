@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -22,7 +22,7 @@ import {accumulateTwoPhaseDispatches} from 'events/EventPropagators';
 import SyntheticEvent from 'events/SyntheticEvent';
 
 import * as DOMTopLevelEventTypes from './DOMTopLevelEventTypes';
-import warning from 'fbjs/lib/warning';
+import warningWithoutStack from 'shared/warningWithoutStack';
 
 import SyntheticAnimationEvent from './SyntheticAnimationEvent';
 import SyntheticClipboardEvent from './SyntheticClipboardEvent';
@@ -64,6 +64,7 @@ const interactiveEventTypeNames: Array<EventTuple> = [
   [DOMTopLevelEventTypes.TOP_CONTEXT_MENU, 'contextMenu'],
   [DOMTopLevelEventTypes.TOP_COPY, 'copy'],
   [DOMTopLevelEventTypes.TOP_CUT, 'cut'],
+  [DOMTopLevelEventTypes.TOP_AUX_CLICK, 'auxClick'],
   [DOMTopLevelEventTypes.TOP_DOUBLE_CLICK, 'doubleClick'],
   [DOMTopLevelEventTypes.TOP_DRAG_END, 'dragEnd'],
   [DOMTopLevelEventTypes.TOP_DRAG_START, 'dragStart'],
@@ -212,7 +213,7 @@ const SimpleEventPlugin: PluginModule<MouseEvent> & {
 
   extractEvents: function(
     topLevelType: TopLevelType,
-    targetInst: Fiber,
+    targetInst: null | Fiber,
     nativeEvent: MouseEvent,
     nativeEventTarget: EventTarget,
   ): null | ReactSyntheticEvent {
@@ -245,6 +246,7 @@ const SimpleEventPlugin: PluginModule<MouseEvent> & {
           return null;
         }
       /* falls through */
+      case DOMTopLevelEventTypes.TOP_AUX_CLICK:
       case DOMTopLevelEventTypes.TOP_DOUBLE_CLICK:
       case DOMTopLevelEventTypes.TOP_MOUSE_DOWN:
       case DOMTopLevelEventTypes.TOP_MOUSE_MOVE:
@@ -304,7 +306,7 @@ const SimpleEventPlugin: PluginModule<MouseEvent> & {
       default:
         if (__DEV__) {
           if (knownHTMLTopLevelTypes.indexOf(topLevelType) === -1) {
-            warning(
+            warningWithoutStack(
               false,
               'SimpleEventPlugin: Unhandled event type, `%s`. This warning ' +
                 'is likely caused by a bug in React. Please file an issue.',

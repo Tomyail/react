@@ -1,13 +1,12 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-import emptyFunction from 'fbjs/lib/emptyFunction';
-import invariant from 'fbjs/lib/invariant';
-import warning from 'fbjs/lib/warning';
+import invariant from 'shared/invariant';
+import warning from 'shared/warning';
 import {
   getIteratorFn,
   REACT_ELEMENT_TYPE,
@@ -167,8 +166,7 @@ function traverseAllChildrenImpl(
             didWarnAboutMaps,
             'Using Maps as children is unsupported and will likely yield ' +
               'unexpected results. Convert it to a sequence/iterable of keyed ' +
-              'ReactElements instead.%s',
-            ReactDebugCurrentFrame.getStackAddendum(),
+              'ReactElements instead.',
           );
           didWarnAboutMaps = true;
         }
@@ -292,12 +290,7 @@ function mapSingleChildIntoContext(bookKeeping, child, childKey) {
 
   let mappedChild = func.call(context, child, bookKeeping.count++);
   if (Array.isArray(mappedChild)) {
-    mapIntoWithKeyPrefixInternal(
-      mappedChild,
-      result,
-      childKey,
-      emptyFunction.thatReturnsArgument,
-    );
+    mapIntoWithKeyPrefixInternal(mappedChild, result, childKey, c => c);
   } else if (mappedChild != null) {
     if (isValidElement(mappedChild)) {
       mappedChild = cloneAndReplaceKey(
@@ -362,7 +355,7 @@ function mapChildren(children, func, context) {
  * @return {number} The number of children.
  */
 function countChildren(children) {
-  return traverseAllChildren(children, emptyFunction.thatReturnsNull, null);
+  return traverseAllChildren(children, () => null, null);
 }
 
 /**
@@ -373,12 +366,7 @@ function countChildren(children) {
  */
 function toArray(children) {
   const result = [];
-  mapIntoWithKeyPrefixInternal(
-    children,
-    result,
-    null,
-    emptyFunction.thatReturnsArgument,
-  );
+  mapIntoWithKeyPrefixInternal(children, result, null, child => child);
   return result;
 }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -548,7 +548,9 @@ const ResponderEventPlugin = {
       ? eventTypes.responderStart
       : isResponderTouchMove
         ? eventTypes.responderMove
-        : isResponderTouchEnd ? eventTypes.responderEnd : null;
+        : isResponderTouchEnd
+          ? eventTypes.responderEnd
+          : null;
 
     if (incrementalTouch) {
       const gesture = ResponderSyntheticEvent.getPooled(
@@ -571,7 +573,9 @@ const ResponderEventPlugin = {
       noResponderTouches(nativeEvent);
     const finalTouch = isResponderTerminate
       ? eventTypes.responderTerminate
-      : isResponderRelease ? eventTypes.responderRelease : null;
+      : isResponderRelease
+        ? eventTypes.responderRelease
+        : null;
     if (finalTouch) {
       const finalEvent = ResponderSyntheticEvent.getPooled(
         finalTouch,

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -100,22 +100,17 @@ declare module 'FabricUIManager' {
     viewName: string,
     rootTag: number,
     props: ?Object,
-    instanceHandle: Object,
+    eventTarget: Object,
   ): Object;
-  declare function cloneNode(node: Object, instanceHandle: Object): Object;
-  declare function cloneNodeWithNewChildren(
-    node: Object,
-    instanceHandle: Object,
-  ): Object;
+  declare function cloneNode(node: Object): Object;
+  declare function cloneNodeWithNewChildren(node: Object): Object;
   declare function cloneNodeWithNewProps(
     node: Object,
     newProps: ?Object,
-    instanceHandle: Object,
   ): Object;
   declare function cloneNodeWithNewChildrenAndProps(
     node: Object,
     newProps: ?Object,
-    instanceHandle: Object,
   ): Object;
   declare function appendChild(node: Object, childNode: Object): void;
 
@@ -124,7 +119,7 @@ declare module 'FabricUIManager' {
   declare function completeRoot(rootTag: number, childSet: Object): void;
   declare function registerEventHandler(
     callback: (
-      instanceHandle: Object,
+      eventTarget: null | Object,
       type: RNTopLevelEventType,
       payload: Object,
     ) => void,
